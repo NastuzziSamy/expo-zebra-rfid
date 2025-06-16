@@ -20,10 +20,16 @@ Pod::Spec.new do |s|
 
   s.dependency 'ExpoModulesCore'
 
+  # Add Zebra RFID SDK Framework
+  s.vendored_frameworks = 'ZebraRfidSdkFramework.xcframework'
+
   # Swift/Objective-C compatibility
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
   }
 
   s.source_files = "**/*.{h,m,mm,swift,hpp,cpp}"
+  
+  # Exclude the framework headers from being included as source files
+  s.exclude_files = "ZebraRfidSdkFramework.xcframework/**/*"
 end

@@ -51,6 +51,33 @@ export function getConnectedScanners(): number[] {
   return ExpoZebraRfidModule.getConnectedScanners();
 }
 
+export async function triggerScan(scannerId: number): Promise<boolean> {
+  return await ExpoZebraRfidModule.triggerScan(scannerId);
+}
+
+export async function startRfidInventory(scannerId: number): Promise<boolean> {
+  return await ExpoZebraRfidModule.startRfidInventory(scannerId);
+}
+
+export async function stopRfidInventory(scannerId: number): Promise<boolean> {
+  return await ExpoZebraRfidModule.stopRfidInventory(scannerId);
+}
+
+export async function readRfidTag(
+  scannerId: number,
+  tagId: string
+): Promise<string | null> {
+  return await ExpoZebraRfidModule.readRfidTag(scannerId, tagId);
+}
+
+export async function writeRfidTag(
+  scannerId: number,
+  tagId: string,
+  data: string
+): Promise<boolean> {
+  return await ExpoZebraRfidModule.writeRfidTag(scannerId, tagId, data);
+}
+
 export async function setValueAsync(value: string): Promise<void> {
   return await ExpoZebraRfidModule.setValueAsync(value);
 }

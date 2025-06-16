@@ -22,6 +22,15 @@ declare class ExpoZebraRfidModule extends NativeModule<ExpoZebraRfidModuleEvents
   disconnectFromScannerAsync(scannerId: number): Promise<boolean>;
   isConnectedToScanner(scannerId: number): boolean;
   getConnectedScanners(): number[];
+  triggerScan(scannerId: number): Promise<boolean>;
+  startRfidInventory(scannerId: number): Promise<boolean>;
+  stopRfidInventory(scannerId: number): Promise<boolean>;
+  readRfidTag(scannerId: number, tagId: string): Promise<string | null>;
+  writeRfidTag(
+    scannerId: number,
+    tagId: string,
+    data: string
+  ): Promise<boolean>;
   setValueAsync(value: string): Promise<void>;
 }
 

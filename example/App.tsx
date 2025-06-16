@@ -9,9 +9,22 @@ import ExpoZebraRfid, {
   disconnectFromScannerAsync,
   isConnectedToScanner,
   getConnectedScanners,
+  triggerScan,
+  startRfidInventory,
+  stopRfidInventory,
+  readRfidTag,
+  writeRfidTag,
   ScannerInfo,
 } from "expo-zebra-rfid";
-import { Button, SafeAreaView, ScrollView, Text, View } from "react-native";
+import {
+  Button,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  View,
+  TextInput,
+  Alert,
+} from "react-native";
 import { useState, useEffect } from "react";
 
 export default function App() {
@@ -28,6 +41,11 @@ export default function App() {
   const [connectingToScanner, setConnectingToScanner] = useState<number | null>(
     null
   );
+  const [scanningStates, setScanningStates] = useState<{
+    [scannerId: number]: { barcode: boolean; rfid: boolean };
+  }>({});
+  const [tagIdInput, setTagIdInput] = useState<string>("");
+  const [tagDataInput, setTagDataInput] = useState<string>("");
   useEffect(() => {
     // Check SDK status when component mounts
     const checkSDKStatus = () => {
@@ -169,6 +187,142 @@ export default function App() {
     }
   };
 
+  const handleRfidInventory = async (scannerId: number, start: boolean) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const scanner = scanners.find((s) => s.scannerId === scannerId);
+
+    try {
+      const result = start
+        ? await startRfidInventory(scannerId)
+        : await stopRfidInventory(scannerId);
+
+      if (result) {
+        setScanningStates((prev) => ({
+          ...prev,
+          [scannerId]: { ...prev[scannerId], rfid: start },
+        }));
+        setEvents((prev) => [
+          `[${timestamp}] ${start ? "Started" : "Stopped"} RFID inventory on ${
+            scanner?.scannerName || `Scanner ${scannerId}`
+          }`,
+          ...prev.slice(0, 9),
+        ]);
+      } else {
+        setEvents((prev) => [
+          `[${timestamp}] Failed to ${
+            start ? "start" : "stop"
+          } RFID inventory on Scanner ${scannerId}`,
+          ...prev.slice(0, 9),
+        ]);
+      }
+    } catch (error) {
+      console.error("Error with RFID inventory:", error);
+      setEvents((prev) => [
+        `[${timestamp}] Error ${
+          start ? "starting" : "stopping"
+        } RFID inventory on Scanner ${scannerId}`,
+        ...prev.slice(0, 9),
+      ]);
+    }
+  };
+
+  const handleTriggerScan = async (scannerId: number) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const scanner = scanners.find((s) => s.scannerId === scannerId);
+
+    try {
+      const result = await triggerScan(scannerId);
+
+      if (result) {
+        setEvents((prev) => [
+          `[${timestamp}] Triggered scan on ${
+            scanner?.scannerName || `Scanner ${scannerId}`
+          }`,
+          ...prev.slice(0, 9),
+        ]);
+      } else {
+        setEvents((prev) => [
+          `[${timestamp}] Failed to trigger scan on Scanner ${scannerId}`,
+          ...prev.slice(0, 9),
+        ]);
+      }
+    } catch (error) {
+      console.error("Error triggering scan:", error);
+      setEvents((prev) => [
+        `[${timestamp}] Error triggering scan on Scanner ${scannerId}`,
+        ...prev.slice(0, 9),
+      ]);
+    }
+  };
+
+  const handleReadRfidTag = async (scannerId: number) => {
+    if (!tagIdInput.trim()) {
+      Alert.alert("Error", "Please enter a Tag ID");
+      return;
+    }
+
+    const timestamp = new Date().toLocaleTimeString();
+    const scanner = scanners.find((s) => s.scannerId === scannerId);
+
+    try {
+      const result = await readRfidTag(scannerId, tagIdInput);
+
+      if (result) {
+        setEvents((prev) => [
+          `[${timestamp}] Read RFID tag ${tagIdInput} from ${
+            scanner?.scannerName || `Scanner ${scannerId}`
+          }: ${result}`,
+          ...prev.slice(0, 9),
+        ]);
+      } else {
+        setEvents((prev) => [
+          `[${timestamp}] Failed to read RFID tag ${tagIdInput} from Scanner ${scannerId}`,
+          ...prev.slice(0, 9),
+        ]);
+      }
+    } catch (error) {
+      console.error("Error reading RFID tag:", error);
+      setEvents((prev) => [
+        `[${timestamp}] Error reading RFID tag ${tagIdInput} from Scanner ${scannerId}`,
+        ...prev.slice(0, 9),
+      ]);
+    }
+  };
+
+  const handleWriteRfidTag = async (scannerId: number) => {
+    if (!tagIdInput.trim() || !tagDataInput.trim()) {
+      Alert.alert("Error", "Please enter both Tag ID and Data");
+      return;
+    }
+
+    const timestamp = new Date().toLocaleTimeString();
+    const scanner = scanners.find((s) => s.scannerId === scannerId);
+
+    try {
+      const result = await writeRfidTag(scannerId, tagIdInput, tagDataInput);
+
+      if (result) {
+        setEvents((prev) => [
+          `[${timestamp}] Wrote RFID tag ${tagIdInput} to ${
+            scanner?.scannerName || `Scanner ${scannerId}`
+          }: ${tagDataInput}`,
+          ...prev.slice(0, 9),
+        ]);
+      } else {
+        setEvents((prev) => [
+          `[${timestamp}] Failed to write RFID tag ${tagIdInput} to Scanner ${scannerId}`,
+          ...prev.slice(0, 9),
+        ]);
+      }
+    } catch (error) {
+      console.error("Error writing RFID tag:", error);
+      setEvents((prev) => [
+        `[${timestamp}] Error writing RFID tag ${tagIdInput} to Scanner ${scannerId}`,
+        ...prev.slice(0, 9),
+      ]);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.container}>
@@ -234,6 +388,10 @@ export default function App() {
           {scanners.map((scanner, index) => {
             const isConnected = connectedScanners.includes(scanner.scannerId);
             const isConnecting = connectingToScanner === scanner.scannerId;
+            const scanningState = scanningStates[scanner.scannerId] || {
+              barcode: false,
+              rfid: false,
+            };
 
             return (
               <View key={scanner.scannerId} style={styles.scannerItem}>
@@ -244,6 +402,8 @@ export default function App() {
                 <Text>Active: {scanner.isActive ? "✅" : "❌"}</Text>
                 <Text>Available: {scanner.isAvailable ? "✅" : "❌"}</Text>
                 <Text>Connected: {isConnected ? "🔗 Yes" : "❌ No"}</Text>
+
+                {/* Connection Controls */}
                 <View style={styles.buttonContainer}>
                   {!isConnected ? (
                     <Button
@@ -261,6 +421,29 @@ export default function App() {
                     />
                   )}
                 </View>
+
+                {/* Scanning Controls - Only show if connected */}
+                {isConnected && (
+                  <View style={styles.scanningSection}>
+                    <Text style={styles.sectionHeader}>🏷️ RFID Operations</Text>
+                    <View style={styles.buttonRow}>
+                      <Button
+                        title={scanningState.rfid ? "Stop RFID" : "Start RFID"}
+                        onPress={() =>
+                          handleRfidInventory(
+                            scanner.scannerId,
+                            !scanningState.rfid
+                          )
+                        }
+                        disabled={!sdkInitialized}
+                      />
+                    </View>
+                    <Text style={styles.statusText}>
+                      Status:{" "}
+                      {scanningState.rfid ? "🟢 Scanning" : "🔴 Stopped"}
+                    </Text>
+                  </View>
+                )}
               </View>
             );
           })}
@@ -272,6 +455,57 @@ export default function App() {
               await ExpoZebraRfid.setValueAsync("Hello from JS!");
             }}
           />
+        </Group>
+        <Group name="RFID Tag Operations">
+          <Text>Operations for connected RFID scanners:</Text>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Tag ID:</Text>
+            <TextInput
+              style={styles.textInput}
+              value={tagIdInput}
+              onChangeText={setTagIdInput}
+              placeholder="Enter tag ID (e.g., 1234ABCD)"
+              autoCapitalize="none"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Tag Data (for writing):</Text>
+            <TextInput
+              style={styles.textInput}
+              value={tagDataInput}
+              onChangeText={setTagDataInput}
+              placeholder="Enter data to write"
+              autoCapitalize="none"
+            />
+          </View>
+          {connectedScanners.length > 0 ? (
+            connectedScanners.map((scannerId) => {
+              const scanner = scanners.find((s) => s.scannerId === scannerId);
+              return (
+                <View key={scannerId} style={styles.rfidOperationItem}>
+                  <Text style={styles.scannerName}>
+                    {scanner?.scannerName || `Scanner ${scannerId}`}
+                  </Text>
+                  <View style={styles.buttonRow}>
+                    <Button
+                      title="Read Tag"
+                      onPress={() => handleReadRfidTag(scannerId)}
+                      disabled={!tagIdInput.trim()}
+                    />
+                    <Button
+                      title="Write Tag"
+                      onPress={() => handleWriteRfidTag(scannerId)}
+                      disabled={!tagIdInput.trim() || !tagDataInput.trim()}
+                    />
+                  </View>
+                </View>
+              );
+            })
+          ) : (
+            <Text style={styles.noConnectedScanners}>
+              No connected scanners for RFID operations
+            </Text>
+          )}
         </Group>
         <Group name="Events">
           <Button title="Clear Events" onPress={() => setEvents([])} />
@@ -370,5 +604,62 @@ const styles = {
   buttonContainer: {
     marginTop: 10,
     marginHorizontal: 5,
+  },
+  scanningSection: {
+    backgroundColor: "#f0f8ff",
+    padding: 10,
+    marginTop: 10,
+    borderRadius: 5,
+    borderLeftWidth: 3,
+    borderLeftColor: "#4CAF50",
+  },
+  sectionHeader: {
+    fontSize: 16,
+    fontWeight: "bold" as const,
+    marginBottom: 8,
+    color: "#333",
+  },
+  buttonRow: {
+    flexDirection: "row" as const,
+    justifyContent: "space-around" as const,
+    marginBottom: 5,
+  },
+  statusText: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 5,
+    textAlign: "center" as const,
+  },
+  inputContainer: {
+    marginVertical: 10,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: "bold" as const,
+    marginBottom: 5,
+    color: "#333",
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 5,
+    padding: 10,
+    fontSize: 16,
+    backgroundColor: "#fff",
+  },
+  rfidOperationItem: {
+    backgroundColor: "#f9f9f9",
+    padding: 10,
+    marginVertical: 5,
+    borderRadius: 5,
+    borderLeftWidth: 3,
+    borderLeftColor: "#FF9800",
+  },
+  noConnectedScanners: {
+    fontSize: 14,
+    color: "#999",
+    fontStyle: "italic" as const,
+    textAlign: "center" as const,
+    marginTop: 10,
   },
 };

@@ -15,8 +15,7 @@ export type ChangeEventPayload = {
     | "scannerAppeared"
     | "scannerDisappeared"
     | "sessionEstablished"
-    | "sessionTerminated"
-    | "barcode";
+    | "sessionTerminated";
   scanner?: ScannerInfo;
   scannerId?: number;
   data?: string;

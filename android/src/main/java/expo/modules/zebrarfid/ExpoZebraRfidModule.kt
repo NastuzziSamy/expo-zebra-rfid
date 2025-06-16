@@ -8,118 +8,210 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.zebra.scannercontrol.DCSSDKDefs
 import com.zebra.scannercontrol.DCSScannerInfo
+import com.zebra.scannercontrol.FirmwareUpdateEvent
+import com.zebra.scannercontrol.IDcsSdkApiDelegate
 import com.zebra.scannercontrol.SDKHandler
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
-class ExpoZebraRfidModule : Module() {
-  // SDKHandler instance for managing Zebra scanner connections
+class ExpoZebraRfidModule : Module(), IDcsSdkApiDelegate {
   private var sdkHandler: SDKHandler? = null
-
-  // List to store available scanners
   private val scannerInfoList = ArrayList<DCSScannerInfo>()
-
-  // Set to track connected scanner IDs
   private val connectedScanners = mutableSetOf<Int>()
 
-  // Each module class must implement the definition function. The definition consists of components
-  // that describes the module's functionality and behavior.
-  // See https://docs.expo.dev/modules/module-api for more details about available components.
   override fun definition() = ModuleDefinition {
-    // Sets the name of the module that JavaScript code will use to refer to the module. Takes a
-    // string as an argument.
-    // Can be inferred from module's class name, but it's recommended to set it explicitly for
-    // clarity.
-    // The module will be accessible from `requireNativeModule('ExpoZebraRfid')` in JavaScript.
     Name("ExpoZebraRfid")
 
-    // Initialize SDK when module is created
     OnCreate {
       try {
-        appContext.reactContext?.let { context -> sdkHandler = SDKHandler(context) }
-        // Optional: Set up any initial configurations here
+        appContext.reactContext?.let { context ->
+          sdkHandler = SDKHandler(context)
+          sdkHandler?.dcssdkSetDelegate(this@ExpoZebraRfidModule)
+          println("✅ Zebra RFID SDK initialized successfully")
+        }
       } catch (e: Exception) {
-        // Handle initialization errors
+        println("❌ Failed to initialize Zebra RFID SDK: ${e.message}")
         e.printStackTrace()
       }
     }
 
-    // Clean up resources when module is destroyed
     OnDestroy {
       try {
         sdkHandler?.dcssdkClose()
         sdkHandler = null
+        println("🧹 Zebra RFID SDK cleaned up")
       } catch (e: Exception) {
-        // Handle cleanup errors
         e.printStackTrace()
       }
     }
 
-    // Sets constant properties on the module. Can take a dictionary or a closure that returns a
-    // dictionary.
-    Constants("PI" to Math.PI)
+    Events("onChange", "onRfidTagRead", "onScannerConnection", "onScannerDisconnection")
 
-    // Defines event names that the module can send to JavaScript.
-    Events("onChange")
-
-    // Defines a JavaScript synchronous function that runs the native code on the JavaScript thread.
-    Function("hello") { "Hello world! 👋" }
-
-    // Check if SDK is initialized
+    Function("hello") { "Hello from Zebra RFID! 🦓📡" }
     Function("isSDKInitialized") { sdkHandler != null }
-
-    // Get SDK version
     Function("getSDKVersion") { sdkHandler?.dcssdkGetVersion() ?: "SDK not initialized" }
 
-    // Check if required permissions are granted
     Function("hasRequiredPermissions") { hasRequiredPermissions() }
-
-    // Request required permissions
     AsyncFunction("requestPermissionsAsync") { promise: Promise -> requestPermissions(promise) }
 
-    // Get available scanners
     AsyncFunction("getAvailableScannersAsync") { ->
       appContext.reactContext?.let { context -> getAvailableScanners(context) }
               ?: emptyList<Map<String, Any?>>()
     }
 
-    // Connect to a specific scanner
     AsyncFunction("connectToScannerAsync") { scannerId: Int, promise: Promise ->
       connectToScanner(scannerId, promise)
     }
-
-    // Disconnect from a specific scanner
     AsyncFunction("disconnectFromScannerAsync") { scannerId: Int, promise: Promise ->
       disconnectFromScanner(scannerId, promise)
     }
-
-    // Check if connected to a specific scanner
     Function("isConnectedToScanner") { scannerId: Int -> isConnectedToScanner(scannerId) }
-
-    // Get list of connected scanners
     Function("getConnectedScanners") { getConnectedScanners() }
 
-    // Defines a JavaScript function that always returns a Promise and whose native code
-    // is by default dispatched on the different thread than the JavaScript runtime runs on.
-    AsyncFunction("setValueAsync") { value: String ->
-      // Send an event to JavaScript.
-      sendEvent("onChange", mapOf("value" to value))
+    AsyncFunction("startRfidInventory") { scannerId: Int, promise: Promise ->
+      startRfidInventory(scannerId, promise)
+    }
+
+    AsyncFunction("stopRfidInventory") { scannerId: Int, promise: Promise ->
+      stopRfidInventory(scannerId, promise)
     }
   }
 
-  // Get available scanners method
+  // IDcsSdkApiDelegate implementation - all methods are required
+  override fun dcssdkEventScannerAppeared(dcsScannerInfo: DCSScannerInfo?) {
+    dcsScannerInfo?.let { info ->
+      println("🔍 Scanner appeared: ${info.scannerName} (ID: ${info.scannerID})")
+      sendEvent(
+              "onScannerConnection",
+              mapOf(
+                      "scannerId" to info.scannerID,
+                      "scannerName" to info.scannerName,
+                      "type" to "appeared"
+              )
+      )
+    }
+  }
+
+  override fun dcssdkEventScannerDisappeared(scannerId: Int) {
+    println("🔍 Scanner disappeared: ID $scannerId")
+    connectedScanners.remove(scannerId)
+    sendEvent("onScannerDisconnection", mapOf("scannerId" to scannerId, "type" to "disappeared"))
+  }
+
+  override fun dcssdkEventAuxScannerAppeared(
+          dcsScannerInfo1: DCSScannerInfo,
+          dcsScannerInfo2: DCSScannerInfo
+  ) {
+    dcsScannerInfo1.let { info ->
+      println("🔍 Auxiliary scanner appeared: ${info.scannerName} (ID: ${info.scannerID})")
+      sendEvent(
+              "onScannerConnection",
+              mapOf(
+                      "scannerId" to info.scannerID,
+                      "scannerName" to info.scannerName,
+                      "type" to "aux-appeared"
+              )
+      )
+    }
+
+    dcsScannerInfo2.let { info ->
+      println("🔍 Auxiliary scanner appeared: ${info.scannerName} (ID: ${info.scannerID})")
+      sendEvent(
+              "onScannerConnection",
+              mapOf(
+                      "scannerId" to info.scannerID,
+                      "scannerName" to info.scannerName,
+                      "type" to "aux-appeared"
+              )
+      )
+    }
+  }
+
+  override fun dcssdkEventCommunicationSessionEstablished(dcsScannerInfo: DCSScannerInfo?) {
+    dcsScannerInfo?.let { info ->
+      println("🔗 Communication session established: ${info.scannerName}")
+      connectedScanners.add(info.scannerID)
+      sendEvent(
+              "onScannerConnection",
+              mapOf(
+                      "scannerId" to info.scannerID,
+                      "scannerName" to info.scannerName,
+                      "type" to "connected"
+              )
+      )
+    }
+  }
+
+  override fun dcssdkEventCommunicationSessionTerminated(scannerId: Int) {
+    println("🔗 Communication session terminated: ID $scannerId")
+    connectedScanners.remove(scannerId)
+    sendEvent("onScannerDisconnection", mapOf("scannerId" to scannerId, "type" to "disconnected"))
+  }
+
+  override fun dcssdkEventBarcode(barcodeData: ByteArray?, barcodeType: Int, fromScannerID: Int) {
+    // Not used - RFID only
+  }
+
+  override fun dcssdkEventImage(imageData: ByteArray?, fromScannerID: Int) {
+    // Not used
+  }
+
+  override fun dcssdkEventVideo(videoFrame: ByteArray?, fromScannerID: Int) {
+    // Not used
+  }
+
+  override fun dcssdkEventBinaryData(binaryData: ByteArray?, fromScannerID: Int) {
+    binaryData?.let { data ->
+      println("📡 RFID binary data received from scanner $fromScannerID: ${data.size} bytes")
+
+      try {
+        val rfidDataString = String(data, Charsets.UTF_8)
+        println("📡 RFID tag data: $rfidDataString")
+
+        sendEvent(
+                "onRfidTagRead",
+                mapOf(
+                        "scannerId" to fromScannerID,
+                        "tagData" to rfidDataString,
+                        "timestamp" to System.currentTimeMillis()
+                )
+        )
+      } catch (e: Exception) {
+        println("⚠️ Error parsing RFID data as UTF-8: ${e.message}")
+
+        // Fallback: send as hex string
+        val hexString = data.joinToString("") { "%02x".format(it) }
+        sendEvent(
+                "onRfidTagRead",
+                mapOf(
+                        "scannerId" to fromScannerID,
+                        "tagData" to hexString,
+                        "timestamp" to System.currentTimeMillis(),
+                        "format" to "hex"
+                )
+        )
+      }
+    }
+  }
+
+  override fun dcssdkEventFirmwareUpdate(firmwareUpdateEvent: FirmwareUpdateEvent?) {
+    // Not used for basic RFID operations
+  }
+
+  // Private implementation methods
   private fun getAvailableScanners(context: Context): List<Map<String, Any?>> {
     if (sdkHandler == null) {
       sdkHandler = SDKHandler(context)
+      sdkHandler?.dcssdkSetDelegate(this)
     }
 
     sdkHandler?.let { handler ->
+      // Set operational modes
       handler.dcssdkSetOperationalMode(DCSSDKDefs.DCSSDK_MODE.DCSSDK_OPMODE_BT_NORMAL)
       handler.dcssdkSetOperationalMode(DCSSDKDefs.DCSSDK_MODE.DCSSDK_OPMODE_USB_CDC)
 
-      // For now, comment out delegate setup until we resolve interface issues
-      // handler.dcssdkSetDelegate(this)
+      // Set up notification mask for RFID events
       var notificationsMask = 0
       notificationsMask =
               notificationsMask or DCSSDKDefs.DCSSDK_EVENT.DCSSDK_EVENT_SCANNER_APPEARANCE.value
@@ -129,43 +221,47 @@ class ExpoZebraRfidModule : Module() {
               notificationsMask or DCSSDKDefs.DCSSDK_EVENT.DCSSDK_EVENT_SESSION_ESTABLISHMENT.value
       notificationsMask =
               notificationsMask or DCSSDKDefs.DCSSDK_EVENT.DCSSDK_EVENT_SESSION_TERMINATION.value
-      notificationsMask = notificationsMask or DCSSDKDefs.DCSSDK_EVENT.DCSSDK_EVENT_BARCODE.value
+      notificationsMask =
+              notificationsMask or DCSSDKDefs.DCSSDK_EVENT.DCSSDK_EVENT_BINARY_DATA.value
 
-      // Subscribe to events set in notification mask
       handler.dcssdkSubsribeForEvents(notificationsMask)
       handler.dcssdkEnableAvailableScannersDetection(true)
 
       scannerInfoList.clear()
       handler.dcssdkGetAvailableScannersList(scannerInfoList)
+
+      println("🔍 Found ${scannerInfoList.size} available scanners")
     }
 
-    // Convert scanner info list to JavaScript-friendly format
     return scannerInfoList.map { scannerInfo ->
       mapOf(
               "scannerId" to scannerInfo.scannerID,
               "scannerName" to scannerInfo.scannerName,
               "isActive" to scannerInfo.isActive,
-              "isAvailable" to true, // Default to true, actual availability logic can be added
+              "isAvailable" to true,
               "connectionType" to scannerInfo.connectionType.toString()
       )
     }
   }
 
-  // Connect to a specific scanner
   private fun connectToScanner(scannerId: Int, promise: Promise) {
     sdkHandler?.let { handler ->
+      println("🔗 Attempting to connect to scanner $scannerId")
       val result = handler.dcssdkEstablishCommunicationSession(scannerId)
-      if (result == DCSSDKDefs.DCSSDK_RESULT.DCSSDK_RESULT_SUCCESS) {
+      val success = result == DCSSDKDefs.DCSSDK_RESULT.DCSSDK_RESULT_SUCCESS
+
+      if (success) {
         connectedScanners.add(scannerId)
-        promise.resolve(true)
+        println("✅ Connected to scanner $scannerId")
       } else {
-        promise.resolve(false)
+        println("❌ Failed to connect to scanner $scannerId")
       }
+
+      promise.resolve(success)
     }
             ?: promise.resolve(false)
   }
 
-  // Disconnect from a specific scanner
   private fun disconnectFromScanner(scannerId: Int, promise: Promise) {
     sdkHandler?.let { handler ->
       val result = handler.dcssdkTerminateCommunicationSession(scannerId)
@@ -173,23 +269,21 @@ class ExpoZebraRfidModule : Module() {
         connectedScanners.remove(scannerId)
         promise.resolve(true)
       } else {
+        println("❌ Failed to disconnect from scanner $scannerId")
         promise.resolve(false)
       }
     }
             ?: promise.resolve(false)
   }
 
-  // Check if connected to a specific scanner
   private fun isConnectedToScanner(scannerId: Int): Boolean {
     return connectedScanners.contains(scannerId)
   }
 
-  // Get list of connected scanners
   private fun getConnectedScanners(): List<Int> {
     return connectedScanners.toList()
   }
 
-  // Check if required permissions are granted
   private fun hasRequiredPermissions(): Boolean {
     val context = appContext.reactContext ?: return false
     val permissions =
@@ -212,7 +306,6 @@ class ExpoZebraRfidModule : Module() {
     }
   }
 
-  // Request required permissions
   private fun requestPermissions(promise: Promise) {
     val context =
             appContext.reactContext
@@ -220,7 +313,6 @@ class ExpoZebraRfidModule : Module() {
                       promise.resolve(false)
                       return
                     }
-
     val permissions =
             mutableListOf(
                     Manifest.permission.BLUETOOTH,
@@ -269,5 +361,73 @@ class ExpoZebraRfidModule : Module() {
       // Fallback - cannot request permissions
       promise.resolve(false)
     }
+  }
+
+  private fun startRfidInventory(scannerId: Int, promise: Promise) {
+    sdkHandler?.let { handler ->
+      if (!connectedScanners.contains(scannerId)) {
+        promise.resolve(false)
+        return
+      }
+
+      println("🏷️ Starting RFID inventory for scanner $scannerId")
+
+      // Set scanner to RFID mode and start inventory
+      val setRfidModeXML =
+              "<inArgs><scannerID>$scannerId</scannerID><cmdArgs><arg-xml><attrib_list>6000</attrib_list></arg-xml></cmdArgs></inArgs>"
+      val rfidModeResult =
+              handler.dcssdkExecuteCommandOpCodeInXMLForScanner(
+                      DCSSDKDefs.DCSSDK_COMMAND_OPCODE.DCSSDK_SET_ACTION,
+                      setRfidModeXML,
+                      null,
+                      scannerId
+              )
+
+      if (rfidModeResult == DCSSDKDefs.DCSSDK_RESULT.DCSSDK_RESULT_SUCCESS) {
+        val startInventoryXML =
+                "<inArgs><scannerID>$scannerId</scannerID><cmdArgs><arg-int>1</arg-int></cmdArgs></inArgs>"
+        val result =
+                handler.dcssdkExecuteCommandOpCodeInXMLForScanner(
+                        DCSSDKDefs.DCSSDK_COMMAND_OPCODE.DCSSDK_DEVICE_SCAN_ENABLE,
+                        startInventoryXML,
+                        null,
+                        scannerId
+                )
+
+        val success = result == DCSSDKDefs.DCSSDK_RESULT.DCSSDK_RESULT_SUCCESS
+        println(if (success) "✅ RFID inventory started" else "❌ Failed to start RFID inventory")
+        promise.resolve(success)
+      } else {
+        println("❌ Failed to set RFID mode")
+        promise.resolve(false)
+      }
+    }
+            ?: promise.resolve(false)
+  }
+
+  private fun stopRfidInventory(scannerId: Int, promise: Promise) {
+    sdkHandler?.let { handler ->
+      if (!connectedScanners.contains(scannerId)) {
+        promise.resolve(false)
+        return
+      }
+
+      println("🏷️ Stopping RFID inventory for scanner $scannerId")
+
+      val stopInventoryXML =
+              "<inArgs><scannerID>$scannerId</scannerID><cmdArgs><arg-int>0</arg-int></cmdArgs></inArgs>"
+      val result =
+              handler.dcssdkExecuteCommandOpCodeInXMLForScanner(
+                      DCSSDKDefs.DCSSDK_COMMAND_OPCODE.DCSSDK_DEVICE_SCAN_DISABLE,
+                      stopInventoryXML,
+                      null,
+                      scannerId
+              )
+
+      val success = result == DCSSDKDefs.DCSSDK_RESULT.DCSSDK_RESULT_SUCCESS
+      println(if (success) "✅ RFID inventory stopped" else "❌ Failed to stop RFID inventory")
+      promise.resolve(success)
+    }
+            ?: promise.resolve(false)
   }
 }
