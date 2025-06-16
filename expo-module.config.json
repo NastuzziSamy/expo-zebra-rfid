@@ -4,6 +4,12 @@
     "modules": ["ExpoZebraRfidModule"]
   },
   "android": {
-    "modules": ["expo.modules.zebrarfid.ExpoZebraRfidModule"]
+    "modules": ["expo.modules.zebrarfid.ExpoZebraRfidModule"],
+    "gradleAarProjects": [
+      {
+        "name": "zebra-sdk",
+        "aarFilePath": "android/libs/API3_LIB-release-2.0.2.114.aar"
+      }
+    ]
   }
 }

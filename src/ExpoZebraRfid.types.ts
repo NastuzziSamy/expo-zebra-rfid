@@ -1,4 +1,5 @@
-import type { StyleProp, ViewStyle } from 'react-native';
+import type { StyleProp, ViewStyle } from "react-native";
+import type { ScannerInfo } from "./ExpoZebraRfidModule";
 
 export type OnLoadEventPayload = {
   url: string;
@@ -9,7 +10,17 @@ export type ExpoZebraRfidModuleEvents = {
 };
 
 export type ChangeEventPayload = {
-  value: string;
+  value?: string;
+  event?:
+    | "scannerAppeared"
+    | "scannerDisappeared"
+    | "sessionEstablished"
+    | "sessionTerminated"
+    | "barcode";
+  scanner?: ScannerInfo;
+  scannerId?: number;
+  data?: string;
+  type?: number;
 };
 
 export type ExpoZebraRfidViewProps = {
