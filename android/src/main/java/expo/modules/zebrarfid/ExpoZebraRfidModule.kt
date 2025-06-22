@@ -23,6 +23,9 @@ class ExpoZebraRfidModule: Module() {
     const val ON_DEVICE_ERRORED = "onDeviceErrored"
     const val ON_RFID_READ = "onRfidRead"
 
+    const val DEVICE_CONNECTED = "CONNECTED"
+    const val DEVICE_DISCONNECTED = "DISCONNECTED"
+
     const val MODULE_NAME = "ExpoZebraRfid"
 
     const val MODULE_SDK_VERSION = "2.0.4.192"
@@ -74,7 +77,7 @@ class ExpoZebraRfidModule: Module() {
         try {
           reader.getRFIDReader().disconnect()
         } catch (e: Exception) {
-          println("Error disconnecting reader: ${e.message}")
+          println("Zebra: Error disconnecting reader: ${e.message}")
         }
       }
       
@@ -117,12 +120,28 @@ class ExpoZebraRfidModule: Module() {
 
     Function("getConnectedDevices") { getConnectedDevices() }
 
-    AsyncFunction("connectToDeviceAsync") { scannerId: String, promise: Promise ->
+    AsyncFunction("connectToDeviceAsync") { deviceId: String, promise: Promise ->
       try {
-        val result = connectToDevice(scannerId)
+        val result = connectToDevice(deviceId)
         promise.resolve(result)
       } catch (e: Exception) {
         promise.reject("CONNECT_SCANNER_ERROR", "Failed to connect to scanner: ${e.message}", e)
+      }
+    }
+
+    AsyncFunction("disconnectFromDeviceAsync") { deviceId: String, promise: Promise ->
+      try {
+        val sdkHandler = sdkHandler ?: return@AsyncFunction promise.reject("SDK_NOT_INITIALIZED", "SDK is not initialized", null)
+
+        sdkHandler.disconnectFromDevice(deviceId).also { isDisconnected ->
+          if (isDisconnected) {
+            promise.resolve(true)
+          } else {
+            promise.reject("DISCONNECT_SCANNER_ERROR", "Failed to disconnect from scanner with address $deviceId", null)
+          }
+        }
+      } catch (e: Exception) {
+        promise.reject("DISCONNECT_SCANNER_ERROR", "Failed to disconnect from scanner: ${e.message}", e)
       }
     }
   }
@@ -158,12 +177,12 @@ class ExpoZebraRfidModule: Module() {
     }
   }
 
-  fun getAvailableDevices(): List<Map<String, String>> =
+  fun getAvailableDevices(): List<Map<String, String?>> =
     sdkHandler?.getAvailableDevices()?.map { 
       it.toReactObject() 
     } ?: emptyList<Map<String, String>>()
 
-  fun getConnectedDevices(): List<Map<String, String>> =
+  fun getConnectedDevices(): List<Map<String, String?>> =
     sdkHandler?.getConnectedDevices()?.map {
       it.toReactObject()
     } ?: emptyList<Map<String, String>>()
@@ -183,7 +202,7 @@ class ExpoZebraRfidModule: Module() {
     }
   }
 
-  fun ReaderDevice.toReactObject(): Map<String, String> =
+  fun ReaderDevice.toReactObject(): Map<String, String?> =
     mapOf(
       "id" to this.getAddress(),
       "name" to this.getName(),
@@ -191,10 +210,14 @@ class ExpoZebraRfidModule: Module() {
       "transport" to this.getTransport().toString(),
       "serialNumber" to this.getSerialNumber(),
       "version" to (try {
-        this.getRFIDReader()?.versionInfo()?.getVersion() ?: ""
+        this.getRFIDReader()?.versionInfo()?.getVersion() ?: null
       } catch (e: Exception) {
-        ""
+        null
       }),
-      "isConnected" to this.getRFIDReader()?.isConnected().toString()
+      "status" to (if (this.getRFIDReader()?.isConnected() ?: false) {
+        DEVICE_CONNECTED
+      } else {
+        DEVICE_DISCONNECTED
+      })
     )
 }

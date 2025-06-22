@@ -2,11 +2,18 @@ import { NativeModule, requireNativeModule } from "expo";
 
 import { ExpoZebraRfidModuleEvents } from "./ExpoZebraRfid.types";
 
-export interface ScannerInfo {
+export const DEVICE_CONNECTED = "CONNECTED";
+export const DEVICE_DISCONNECTED = "DISCONNECTED";
+
+export type DeviceTransport = "BLUETOOTH" | "USB";
+export interface Device {
   id: string;
   name: string;
+  address: string;
+  transport: DeviceTransport;
   serialNumber: string;
-  transport: "Bluetooth" | "USB";
+  version: string | null;
+  isConnected: boolean;
 }
 
 declare class ExpoZebraRfidModule extends NativeModule<ExpoZebraRfidModuleEvents> {
@@ -16,7 +23,7 @@ declare class ExpoZebraRfidModule extends NativeModule<ExpoZebraRfidModuleEvents
   hasRequiredPermissions(): boolean;
   requestPermissions(): Promise<boolean>;
 
-  getAvailableDevices(): Promise<ScannerInfo[]>;
+  getAvailableDevices(): Promise<Device[]>;
   // connectToDevice(scannerId: number): Promise<boolean>;
   // disconnectFromScanner(scannerId: number): Promise<boolean>;
   // isConnectedToScanner(scannerId: number): boolean;

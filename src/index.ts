@@ -2,9 +2,12 @@
 // and on native platforms to ExpoZebraRfidModule.ts
 export { default } from "./ExpoZebraRfidModule";
 export * from "./ExpoZebraRfid.types";
-export type { ScannerInfo } from "./ExpoZebraRfidModule";
+export type { Device } from "./ExpoZebraRfidModule";
 
-import ExpoZebraRfidModule, { ScannerInfo } from "./ExpoZebraRfidModule";
+import ExpoZebraRfidModule, {
+  type Device,
+  DEVICE_CONNECTED,
+} from "./ExpoZebraRfidModule";
 
 export function isSDKInitialized(): boolean {
   return ExpoZebraRfidModule.isSDKInitialized();
@@ -22,18 +25,29 @@ export async function requestPermissions(): Promise<boolean> {
   return await ExpoZebraRfidModule.requestPermissionsAsync();
 }
 
-export async function getAvailableDevices(): Promise<ScannerInfo[]> {
-  return await ExpoZebraRfidModule.getAvailableDevicesAsync();
+export async function getAvailableDevices(): Promise<Device[]> {
+  console.log(await ExpoZebraRfidModule.getAvailableDevicesAsync());
+  return (await ExpoZebraRfidModule.getAvailableDevicesAsync()).map(
+    ({
+      status,
+      ...device
+    }: Omit<Device, "isConnected"> & {
+      status: string;
+    }) => ({
+      ...device,
+      isConnected: status === DEVICE_CONNECTED,
+    })
+  );
 }
 
 export async function connectToDevice(scannerId: number): Promise<boolean> {
   return await ExpoZebraRfidModule.connectToDeviceAsync(scannerId);
 }
 
-export async function disconnectFromScanner(
+export async function disconnectFromDevice(
   scannerId: number
 ): Promise<boolean> {
-  return await ExpoZebraRfidModule.disconnectFromScanner(scannerId);
+  return await ExpoZebraRfidModule.disconnectFromDeviceAsync(scannerId);
 }
 
 export function isConnectedToScanner(scannerId: number): boolean {

@@ -84,7 +84,7 @@ public class ExpoZebraRfidModule: Module {
     }
     
     // Disconnect from a specific scanner/reader
-    AsyncFunction("disconnectFromScanner") { (scannerId: Int, promise: Promise) in
+    AsyncFunction("disconnectFromDevice") { (scannerId: Int, promise: Promise) in
       self.disconnectFromReader(readerId: scannerId, promise: promise)
     }
     

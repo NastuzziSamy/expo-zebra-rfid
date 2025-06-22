@@ -6,7 +6,7 @@ import ExpoZebraRfid, {
   requestPermissions,
   getAvailableDevices,
   connectToDevice,
-  disconnectFromScanner,
+  disconnectFromDevice,
   isConnectedToScanner,
   getConnectedDevices,
   triggerScan,
@@ -47,19 +47,14 @@ export default function App() {
   const [tagIdInput, setTagIdInput] = useState<string>("");
   const [tagDataInput, setTagDataInput] = useState<string>("");
   useEffect(() => {
-    // Check SDK status when component mounts
-    const checkSDKStatus = () => {
-      setSdkInitialized(isSDKInitialized());
-      setSdkVersion(getSDKVersion());
-      setHasPermissions(hasRequiredPermissions());
-      setConnectedReaders(getConnectedDevices());
-    };
-
-    checkSDKStatus();
-    // Check every 2 seconds for initialization status
-    const interval = setInterval(checkSDKStatus, 2000);
-
-    return () => clearInterval(interval);
+    setSdkInitialized(isSDKInitialized());
+    setSdkVersion(getSDKVersion());
+    setHasPermissions(hasRequiredPermissions());
+    getAvailableDevices().then((availableReaders) => {
+      setReaders(availableReaders);
+      console.log("Available Readers:", availableReaders);
+    });
+    setConnectedReaders(getConnectedDevices().map((scanner) => scanner.id));
   }, []);
 
   useEffect(() => {
@@ -133,7 +128,7 @@ export default function App() {
       if (connected) {
         const devices = getConnectedDevices();
         console.log("Connected Devices:", devices);
-        setConnectedReaders(devices);
+        setConnectedReaders(devices.map((scanner) => scanner.id));
         const scanner = Readers.find((s) => s.id === scannerId);
         setEvents((prev) => [
           `[${timestamp}] Successfully connected to ${
@@ -161,11 +156,11 @@ export default function App() {
 
   const tryToDisconnect = async (scannerId: number) => {
     try {
-      const disconnected = await disconnectFromScanner(scannerId);
+      const disconnected = await disconnectFromDevice(scannerId);
       const timestamp = new Date().toLocaleTimeString();
 
       if (disconnected) {
-        setConnectedReaders(getConnectedDevices());
+        setConnectedReaders(getConnectedDevices().map((scanner) => scanner.id));
         const scanner = Readers.find((s) => s.id === scannerId);
         setEvents((prev) => [
           `[${timestamp}] Successfully disconnected from ${
@@ -353,7 +348,9 @@ export default function App() {
               setSdkInitialized(isSDKInitialized());
               setSdkVersion(getSDKVersion());
               setHasPermissions(hasRequiredPermissions());
-              setConnectedReaders(getConnectedDevices());
+              setConnectedReaders(
+                getConnectedDevices().map((scanner) => scanner.id)
+              );
             }}
           />
         </Group>
@@ -383,9 +380,9 @@ export default function App() {
           )}
           <Text>Found {Readers.length} scanner(s):</Text>
           {Readers.map((scanner, index) => {
-            const isConnected = connectedReaders.includes(scanner.scannerId);
-            const isConnecting = connectingToScanner === scanner.scannerId;
-            const scanningState = scanningStates[scanner.scannerId] || {
+            const isConnected = connectedReaders.includes(scanner.id);
+            const isConnecting = connectingToScanner === scanner.id;
+            const scanningState = scanningStates[scanner.id] || {
               barcode: false,
               rfid: false,
             };
@@ -465,9 +462,10 @@ export default function App() {
             />
           </View>
           {connectedReaders.length > 0 ? (
-            connectedReaders.map((scanner) => {
+            connectedReaders.map((scannerId) => {
+              const scanner = Readers.find((s) => s.id === scannerId);
               return (
-                <View key={scanner.id} style={styles.rfidOperationItem}>
+                <View key={scannerId} style={styles.rfidOperationItem}>
                   <Text style={styles.scannerName}>
                     {scanner.name || `Scanner ${scanner.id}`}
                   </Text>
