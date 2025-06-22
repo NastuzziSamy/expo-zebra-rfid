@@ -52,7 +52,7 @@
 
 - (SRFID_RESULT) srfidSetOperationalMode:(int)operationalMode;
 
-- (SRFID_RESULT) srfidGetAvailableReadersList:(NSMutableArray**)availableReadersList;
+- (SRFID_RESULT) srfidgetAvailableDevicesList:(NSMutableArray**)availableReadersList;
 - (SRFID_RESULT) srfidGetActiveReadersList:(NSMutableArray**)activeReadersList;
 
 - (SRFID_RESULT) srfidEstablishCommunicationSession:(int)readerID;

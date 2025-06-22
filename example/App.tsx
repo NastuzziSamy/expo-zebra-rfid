@@ -3,12 +3,12 @@ import ExpoZebraRfid, {
   isSDKInitialized,
   getSDKVersion,
   hasRequiredPermissions,
-  requestPermissionsAsync,
-  getAvailableScannersAsync,
-  connectToScannerAsync,
-  disconnectFromScannerAsync,
+  requestPermissions,
+  getAvailableDevices,
+  connectToDevice,
+  disconnectFromScanner,
   isConnectedToScanner,
-  getConnectedScanners,
+  getConnectedDevices,
   triggerScan,
   startRfidInventory,
   stopRfidInventory,
@@ -31,13 +31,13 @@ export default function App() {
   const onChangePayload = useEvent(ExpoZebraRfid, "onChange");
   const [sdkInitialized, setSdkInitialized] = useState<boolean>(false);
   const [sdkVersion, setSdkVersion] = useState<string>("");
-  const [scanners, setScanners] = useState<ScannerInfo[]>([]);
+  const [Readers, setReaders] = useState<ScannerInfo[]>([]);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [events, setEvents] = useState<string[]>([]);
   const [hasPermissions, setHasPermissions] = useState<boolean>(false);
   const [isRequestingPermissions, setIsRequestingPermissions] =
     useState<boolean>(false);
-  const [connectedScanners, setConnectedScanners] = useState<number[]>([]);
+  const [connectedReaders, setConnectedReaders] = useState<number[]>([]);
   const [connectingToScanner, setConnectingToScanner] = useState<number | null>(
     null
   );
@@ -52,7 +52,7 @@ export default function App() {
       setSdkInitialized(isSDKInitialized());
       setSdkVersion(getSDKVersion());
       setHasPermissions(hasRequiredPermissions());
-      setConnectedScanners(getConnectedScanners());
+      setConnectedReaders(getConnectedDevices());
     };
 
     checkSDKStatus();
@@ -89,9 +89,9 @@ export default function App() {
   const scanForDevices = async () => {
     try {
       setIsScanning(true);
-      const availableScanners = await getAvailableScannersAsync();
-      setScanners(availableScanners);
-      console.log("Available scanners:", availableScanners);
+      const availableReaders = await getAvailableDevices();
+      setReaders(availableReaders);
+      console.log("Available Readers:", availableReaders);
     } catch (error) {
       console.error("Error scanning for devices:", error);
     } finally {
@@ -99,10 +99,10 @@ export default function App() {
     }
   };
 
-  const requestPermissions = async () => {
+  const askForPermissions = async () => {
     try {
       setIsRequestingPermissions(true);
-      const granted = await requestPermissionsAsync();
+      const granted = await requestPermissions();
       setHasPermissions(granted);
       if (granted) {
         const timestamp = new Date().toLocaleTimeString();
@@ -124,18 +124,20 @@ export default function App() {
     }
   };
 
-  const connectToScanner = async (scannerId: number) => {
+  const tryToConnect = async (scannerId: String) => {
     try {
       setConnectingToScanner(scannerId);
-      const connected = await connectToScannerAsync(scannerId);
+      const connected = await connectToDevice(scannerId);
       const timestamp = new Date().toLocaleTimeString();
 
       if (connected) {
-        setConnectedScanners(getConnectedScanners());
-        const scanner = scanners.find((s) => s.scannerId === scannerId);
+        const devices = getConnectedDevices();
+        console.log("Connected Devices:", devices);
+        setConnectedReaders(devices);
+        const scanner = Readers.find((s) => s.id === scannerId);
         setEvents((prev) => [
           `[${timestamp}] Successfully connected to ${
-            scanner?.scannerName || `Scanner ${scannerId}`
+            scanner?.name || `Scanner ${scannerId}`
           }`,
           ...prev.slice(0, 9),
         ]);
@@ -157,17 +159,17 @@ export default function App() {
     }
   };
 
-  const disconnectFromScanner = async (scannerId: number) => {
+  const tryToDisconnect = async (scannerId: number) => {
     try {
-      const disconnected = await disconnectFromScannerAsync(scannerId);
+      const disconnected = await disconnectFromScanner(scannerId);
       const timestamp = new Date().toLocaleTimeString();
 
       if (disconnected) {
-        setConnectedScanners(getConnectedScanners());
-        const scanner = scanners.find((s) => s.scannerId === scannerId);
+        setConnectedReaders(getConnectedDevices());
+        const scanner = Readers.find((s) => s.id === scannerId);
         setEvents((prev) => [
           `[${timestamp}] Successfully disconnected from ${
-            scanner?.scannerName || `Scanner ${scannerId}`
+            scanner?.name || `Scanner ${scannerId}`
           }`,
           ...prev.slice(0, 9),
         ]);
@@ -189,7 +191,7 @@ export default function App() {
 
   const handleRfidInventory = async (scannerId: number, start: boolean) => {
     const timestamp = new Date().toLocaleTimeString();
-    const scanner = scanners.find((s) => s.scannerId === scannerId);
+    const scanner = Readers.find((s) => s.id === scannerId);
 
     try {
       const result = start
@@ -203,7 +205,7 @@ export default function App() {
         }));
         setEvents((prev) => [
           `[${timestamp}] ${start ? "Started" : "Stopped"} RFID inventory on ${
-            scanner?.scannerName || `Scanner ${scannerId}`
+            scanner?.name || `Scanner ${scannerId}`
           }`,
           ...prev.slice(0, 9),
         ]);
@@ -228,7 +230,7 @@ export default function App() {
 
   const handleTriggerScan = async (scannerId: number) => {
     const timestamp = new Date().toLocaleTimeString();
-    const scanner = scanners.find((s) => s.scannerId === scannerId);
+    const scanner = Readers.find((s) => s.id === scannerId);
 
     try {
       const result = await triggerScan(scannerId);
@@ -236,7 +238,7 @@ export default function App() {
       if (result) {
         setEvents((prev) => [
           `[${timestamp}] Triggered scan on ${
-            scanner?.scannerName || `Scanner ${scannerId}`
+            scanner?.name || `Scanner ${scannerId}`
           }`,
           ...prev.slice(0, 9),
         ]);
@@ -262,7 +264,7 @@ export default function App() {
     }
 
     const timestamp = new Date().toLocaleTimeString();
-    const scanner = scanners.find((s) => s.scannerId === scannerId);
+    const scanner = Readers.find((s) => s.id === scannerId);
 
     try {
       const result = await readRfidTag(scannerId, tagIdInput);
@@ -270,7 +272,7 @@ export default function App() {
       if (result) {
         setEvents((prev) => [
           `[${timestamp}] Read RFID tag ${tagIdInput} from ${
-            scanner?.scannerName || `Scanner ${scannerId}`
+            scanner?.name || `Scanner ${scannerId}`
           }: ${result}`,
           ...prev.slice(0, 9),
         ]);
@@ -296,7 +298,7 @@ export default function App() {
     }
 
     const timestamp = new Date().toLocaleTimeString();
-    const scanner = scanners.find((s) => s.scannerId === scannerId);
+    const scanner = Readers.find((s) => s.id === scannerId);
 
     try {
       const result = await writeRfidTag(scannerId, tagIdInput, tagDataInput);
@@ -304,7 +306,7 @@ export default function App() {
       if (result) {
         setEvents((prev) => [
           `[${timestamp}] Wrote RFID tag ${tagIdInput} to ${
-            scanner?.scannerName || `Scanner ${scannerId}`
+            scanner?.name || `Scanner ${scannerId}`
           }: ${tagDataInput}`,
           ...prev.slice(0, 9),
         ]);
@@ -327,12 +329,6 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.container}>
         <Text style={styles.header}>Module API Example</Text>
-        <Group name="Constants">
-          <Text>{ExpoZebraRfid.PI}</Text>
-        </Group>
-        <Group name="Functions">
-          <Text>{ExpoZebraRfid.hello()}</Text>
-        </Group>
         <Group name="Zebra SDK Status">
           <Text>SDK Initialized: {sdkInitialized ? "✅ Yes" : "❌ No"}</Text>
           <Text>SDK Version: {sdkVersion}</Text>
@@ -340,14 +336,15 @@ export default function App() {
             Permissions: {hasPermissions ? "✅ Granted" : "❌ Missing"}
           </Text>
           <Text>
-            Connected Scanners:{" "}
-            {connectedScanners.length > 0
-              ? `🔗 ${connectedScanners.length}`
+            Connected Readers:{" "}
+            {connectedReaders.length > 0
+              ? `🔗 ${connectedReaders.length}`
               : "❌ None"}
           </Text>
-          {connectedScanners.length > 0 && (
+          {connectedReaders.length > 0 && (
             <Text style={styles.permissionText}>
-              • Scanner IDs: {connectedScanners.join(", ")}
+              • Scanner IDs:{" "}
+              {connectedReaders.map(({ name }) => name).join(", ")}
             </Text>
           )}
           <Button
@@ -356,7 +353,7 @@ export default function App() {
               setSdkInitialized(isSDKInitialized());
               setSdkVersion(getSDKVersion());
               setHasPermissions(hasRequiredPermissions());
-              setConnectedScanners(getConnectedScanners());
+              setConnectedReaders(getConnectedDevices());
             }}
           />
         </Group>
@@ -369,13 +366,13 @@ export default function App() {
             title={
               isRequestingPermissions ? "Requesting..." : "Request Permissions"
             }
-            onPress={requestPermissions}
+            onPress={askForPermissions}
             disabled={isRequestingPermissions || hasPermissions}
           />
         </Group>
         <Group name="Scanner Detection">
           <Button
-            title={isScanning ? "Scanning..." : "Scan for Scanners"}
+            title={isScanning ? "Scanning..." : "Scan for Readers"}
             onPress={scanForDevices}
             disabled={isScanning || !sdkInitialized || !hasPermissions}
           />
@@ -384,9 +381,9 @@ export default function App() {
               ⚠️ Permissions required for scanner detection
             </Text>
           )}
-          <Text>Found {scanners.length} scanner(s):</Text>
-          {scanners.map((scanner, index) => {
-            const isConnected = connectedScanners.includes(scanner.scannerId);
+          <Text>Found {Readers.length} scanner(s):</Text>
+          {Readers.map((scanner, index) => {
+            const isConnected = connectedReaders.includes(scanner.scannerId);
             const isConnecting = connectingToScanner === scanner.scannerId;
             const scanningState = scanningStates[scanner.scannerId] || {
               barcode: false,
@@ -394,21 +391,21 @@ export default function App() {
             };
 
             return (
-              <View key={scanner.scannerId} style={styles.scannerItem}>
+              <View key={scanner.id} style={styles.scannerItem}>
                 <Text style={styles.scannerName}>
-                  {scanner.scannerName} (ID: {scanner.scannerId})
+                  {scanner.name} (ID: {scanner.id})
                 </Text>
-                <Text>Type: {scanner.connectionType}</Text>
-                <Text>Active: {scanner.isActive ? "✅" : "❌"}</Text>
+                <Text>Type: {scanner.transport}</Text>
+                {/* <Text>Active: {scanner.isActive ? "✅" : "❌"}</Text>
                 <Text>Available: {scanner.isAvailable ? "✅" : "❌"}</Text>
-                <Text>Connected: {isConnected ? "🔗 Yes" : "❌ No"}</Text>
+                <Text>Connected: {isConnected ? "🔗 Yes" : "❌ No"}</Text> */}
 
                 {/* Connection Controls */}
                 <View style={styles.buttonContainer}>
                   {!isConnected ? (
                     <Button
                       title={isConnecting ? "Connecting..." : "Connect"}
-                      onPress={() => connectToScanner(scanner.scannerId)}
+                      onPress={() => tryToConnect(scanner.id)}
                       disabled={
                         isConnecting || !sdkInitialized || !hasPermissions
                       }
@@ -416,7 +413,7 @@ export default function App() {
                   ) : (
                     <Button
                       title="Disconnect"
-                      onPress={() => disconnectFromScanner(scanner.scannerId)}
+                      onPress={() => tryToDisconnect(scanner.id)}
                       disabled={!sdkInitialized}
                     />
                   )}
@@ -430,10 +427,7 @@ export default function App() {
                       <Button
                         title={scanningState.rfid ? "Stop RFID" : "Start RFID"}
                         onPress={() =>
-                          handleRfidInventory(
-                            scanner.scannerId,
-                            !scanningState.rfid
-                          )
+                          handleRfidInventory(scanner.id, !scanningState.rfid)
                         }
                         disabled={!sdkInitialized}
                       />
@@ -448,16 +442,8 @@ export default function App() {
             );
           })}
         </Group>
-        <Group name="Async functions">
-          <Button
-            title="Set value"
-            onPress={async () => {
-              await ExpoZebraRfid.setValueAsync("Hello from JS!");
-            }}
-          />
-        </Group>
         <Group name="RFID Tag Operations">
-          <Text>Operations for connected RFID scanners:</Text>
+          <Text>Operations for connected RFID Readers:</Text>
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Tag ID:</Text>
             <TextInput
@@ -478,23 +464,22 @@ export default function App() {
               autoCapitalize="none"
             />
           </View>
-          {connectedScanners.length > 0 ? (
-            connectedScanners.map((scannerId) => {
-              const scanner = scanners.find((s) => s.scannerId === scannerId);
+          {connectedReaders.length > 0 ? (
+            connectedReaders.map((scanner) => {
               return (
-                <View key={scannerId} style={styles.rfidOperationItem}>
+                <View key={scanner.id} style={styles.rfidOperationItem}>
                   <Text style={styles.scannerName}>
-                    {scanner?.scannerName || `Scanner ${scannerId}`}
+                    {scanner.name || `Scanner ${scanner.id}`}
                   </Text>
                   <View style={styles.buttonRow}>
                     <Button
                       title="Read Tag"
-                      onPress={() => handleReadRfidTag(scannerId)}
+                      onPress={() => handleReadRfidTag(scanner.id)}
                       disabled={!tagIdInput.trim()}
                     />
                     <Button
                       title="Write Tag"
-                      onPress={() => handleWriteRfidTag(scannerId)}
+                      onPress={() => handleWriteRfidTag(scanner.id)}
                       disabled={!tagIdInput.trim() || !tagDataInput.trim()}
                     />
                   </View>
@@ -502,8 +487,8 @@ export default function App() {
               );
             })
           ) : (
-            <Text style={styles.noConnectedScanners}>
-              No connected scanners for RFID operations
+            <Text style={styles.noConnectedReaders}>
+              No connected Readers for RFID operations
             </Text>
           )}
         </Group>
@@ -655,7 +640,7 @@ const styles = {
     borderLeftWidth: 3,
     borderLeftColor: "#FF9800",
   },
-  noConnectedScanners: {
+  noConnectedReaders: {
     fontSize: 14,
     color: "#999",
     fontStyle: "italic" as const,

@@ -6,11 +6,6 @@ export type { ScannerInfo } from "./ExpoZebraRfidModule";
 
 import ExpoZebraRfidModule, { ScannerInfo } from "./ExpoZebraRfidModule";
 
-// Convenience functions for easier usage
-export function hello(): string {
-  return ExpoZebraRfidModule.hello();
-}
-
 export function isSDKInitialized(): boolean {
   return ExpoZebraRfidModule.isSDKInitialized();
 }
@@ -23,32 +18,30 @@ export function hasRequiredPermissions(): boolean {
   return ExpoZebraRfidModule.hasRequiredPermissions();
 }
 
-export async function requestPermissionsAsync(): Promise<boolean> {
+export async function requestPermissions(): Promise<boolean> {
   return await ExpoZebraRfidModule.requestPermissionsAsync();
 }
 
-export async function getAvailableScannersAsync(): Promise<ScannerInfo[]> {
-  return await ExpoZebraRfidModule.getAvailableScannersAsync();
+export async function getAvailableDevices(): Promise<ScannerInfo[]> {
+  return await ExpoZebraRfidModule.getAvailableDevicesAsync();
 }
 
-export async function connectToScannerAsync(
-  scannerId: number
-): Promise<boolean> {
-  return await ExpoZebraRfidModule.connectToScannerAsync(scannerId);
+export async function connectToDevice(scannerId: number): Promise<boolean> {
+  return await ExpoZebraRfidModule.connectToDeviceAsync(scannerId);
 }
 
-export async function disconnectFromScannerAsync(
+export async function disconnectFromScanner(
   scannerId: number
 ): Promise<boolean> {
-  return await ExpoZebraRfidModule.disconnectFromScannerAsync(scannerId);
+  return await ExpoZebraRfidModule.disconnectFromScanner(scannerId);
 }
 
 export function isConnectedToScanner(scannerId: number): boolean {
   return ExpoZebraRfidModule.isConnectedToScanner(scannerId);
 }
 
-export function getConnectedScanners(): number[] {
-  return ExpoZebraRfidModule.getConnectedScanners();
+export function getConnectedDevices(): number[] {
+  return ExpoZebraRfidModule.getConnectedDevices();
 }
 
 export async function triggerScan(scannerId: number): Promise<boolean> {
@@ -76,8 +69,4 @@ export async function writeRfidTag(
   data: string
 ): Promise<boolean> {
   return await ExpoZebraRfidModule.writeRfidTag(scannerId, tagId, data);
-}
-
-export async function setValueAsync(value: string): Promise<void> {
-  return await ExpoZebraRfidModule.setValueAsync(value);
 }

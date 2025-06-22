@@ -4,9 +4,9 @@
 <dict>
 	<!-- Bluetooth permissions for RFID scanner connectivity -->
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>This app needs Bluetooth access to connect to Zebra RFID scanners and readers.</string>
+	<string>This app needs Bluetooth access to connect to Zebra RFID Readers and readers.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>This app needs Bluetooth access to connect to Zebra RFID scanners and readers.</string>
+	<string>This app needs Bluetooth access to connect to Zebra RFID Readers and readers.</string>
 	
 	<!-- MFi accessories support -->
 	<key>UISupportedExternalAccessoryProtocols</key>

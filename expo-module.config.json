@@ -1,5 +1,5 @@
 {
-  "platforms": ["apple", "android", "web"],
+  "platforms": ["ios", "android"],
   "apple": {
     "modules": ["ExpoZebraRfidModule"]
   },
@@ -7,8 +7,24 @@
     "modules": ["expo.modules.zebrarfid.ExpoZebraRfidModule"],
     "gradleAarProjects": [
       {
-        "name": "zebra-sdk",
-        "aarFilePath": "android/libs/API3_LIB-release-2.0.2.114.aar"
+        "name": "zebra-reader",
+        "aarFilePath": "android/libs/API3_READER-release-2.0.4.192.aar"
+      },
+      {
+        "name": "zebra-cmn",
+        "aarFilePath": "android/libs/API3_CMN-release-2.0.4.192.aar"
+      },
+      {
+        "name": "zebra-interface",
+        "aarFilePath": "android/libs/API3_INTERFACE-release-2.0.4.192.aar"
+      },
+      {
+        "name": "zebra-hostlib",
+        "aarFilePath": "android/libs/rfidhostlib.aar"
+      },
+      {
+        "name": "zebra-seriallib",
+        "aarFilePath": "android/libs/rfidseriallib.aar"
       }
     ]
   }

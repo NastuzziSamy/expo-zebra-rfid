@@ -50,18 +50,8 @@ public class ExpoZebraRfidModule: Module {
       self.rfidSdkApi = nil
     }
 
-    // Sets constant properties on the module. Can take a dictionary or a closure that returns a dictionary.
-    Constants([
-      "PI": Double.pi
-    ])
-
     // Defines event names that the module can send to JavaScript.
     Events("onChange")
-
-    // Defines a JavaScript synchronous function that runs the native code on the JavaScript thread.
-    Function("hello") {
-      return "Hello world! 👋"
-    }
     
     // Check if SDK is initialized
     Function("isSDKInitialized") {
@@ -79,22 +69,22 @@ public class ExpoZebraRfidModule: Module {
     }
     
     // Request required permissions (iOS doesn't need explicit permission requests for RFID)
-    AsyncFunction("requestPermissionsAsync") { (promise: Promise) in
+    AsyncFunction("requestPermissions") { (promise: Promise) in
       promise.resolve(true) // iOS automatically requests permissions when needed
     }
     
-    // Get available scanners/readers
-    AsyncFunction("getAvailableScannersAsync") { (promise: Promise) in
-      self.getAvailableReaders(promise: promise)
+    // Get available Readers/readers
+    AsyncFunction("getAvailableDevices") { (promise: Promise) in
+      self.getAvailableDevices(promise: promise)
     }
     
     // Connect to a specific scanner/reader
-    AsyncFunction("connectToScannerAsync") { (scannerId: Int, promise: Promise) in
+    AsyncFunction("connectToDevice") { (scannerId: Int, promise: Promise) in
       self.connectToReader(readerId: scannerId, promise: promise)
     }
     
     // Disconnect from a specific scanner/reader
-    AsyncFunction("disconnectFromScannerAsync") { (scannerId: Int, promise: Promise) in
+    AsyncFunction("disconnectFromScanner") { (scannerId: Int, promise: Promise) in
       self.disconnectFromReader(readerId: scannerId, promise: promise)
     }
     
@@ -103,8 +93,8 @@ public class ExpoZebraRfidModule: Module {
       return self.connectedReaders.contains(scannerId)
     }
     
-    // Get list of connected scanners/readers
-    Function("getConnectedScanners") {
+    // Get list of connected Readers/readers
+    Function("getConnectedDevices") {
       return Array(self.connectedReaders)
     }
     
@@ -158,7 +148,7 @@ public class ExpoZebraRfidModule: Module {
   
   // MARK: - Private Methods
   
-  private func getAvailableReaders(promise: Promise) {
+  private func getAvailableDevices(promise: Promise) {
     guard let rfidSdkApi = self.rfidSdkApi else {
       print("❌ RFID SDK API is nil")
       promise.resolve([])
@@ -173,7 +163,7 @@ public class ExpoZebraRfidModule: Module {
     
     // Get available readers list
     var readersList: NSMutableArray?
-    let result = rfidSdkApi.srfidGetAvailableReadersList(&readersList)
+    let result = rfidSdkApi.srfidgetAvailableDevicesList(&readersList)
     print("📋 Get readers list result: \(result)")
     print("📋 Readers list: \(readersList?.description ?? "nil")")
     
@@ -203,7 +193,7 @@ public class ExpoZebraRfidModule: Module {
       // Check if we're running in simulator and provide mock data
       #if targetEnvironment(simulator)
       print("🤖 Running in simulator - providing mock scanner data")
-      let mockScanners: [[String: Any]] = [
+      let mockReaders: [[String: Any]] = [
         [
           "scannerId": 1001,
           "scannerName": "Mock RFID Scanner (Simulator)",
@@ -219,7 +209,7 @@ public class ExpoZebraRfidModule: Module {
           "connectionType": "MFI"
         ]
       ]
-      promise.resolve(mockScanners)
+      promise.resolve(mockReaders)
       #else
       promise.resolve([])
       #endif

@@ -43,8 +43,8 @@ android {
 }
 
 dependencies {
-  // Zebra SDK from AAR file
-  implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+  // Zebra SDK from AAR files  
+  implementation fileTree(dir: 'libs', include: ['*.aar'])
   
   // Android dependencies for proper compilation
   implementation 'androidx.core:core-ktx:1.12.0'
