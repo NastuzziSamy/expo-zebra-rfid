@@ -9,6 +9,8 @@ import androidx.core.content.ContextCompat
 import com.zebra.rfid.api3.ENUM_TRANSPORT
 import com.zebra.rfid.api3.Readers
 import com.zebra.rfid.api3.ReaderDevice
+import com.zebra.rfid.api3.RFIDReader
+import com.zebra.rfid.api3.TagData
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -21,6 +23,7 @@ class ExpoZebraRfidModule: Module() {
     const val ON_DEVICE_CONNECTED = "onDeviceConnected"
     const val ON_DEVICE_DISCONNECTED = "onDeviceDisconnected"
     const val ON_DEVICE_ERRORED = "onDeviceErrored"
+    const val ON_DEVICE_TRIGGERED = "onDeviceTriggered"
     const val ON_RFID_READ = "onRfidRead"
 
     const val DEVICE_CONNECTED = "CONNECTED"
@@ -34,6 +37,7 @@ class ExpoZebraRfidModule: Module() {
       ON_DEVICE_CONNECTED,
       ON_DEVICE_DISCONNECTED,
       ON_DEVICE_ERRORED,
+      ON_DEVICE_TRIGGERED,
       ON_RFID_READ,
     )
 
@@ -61,6 +65,8 @@ class ExpoZebraRfidModule: Module() {
       }.toList()
   }
 
+  public fun getContext(): Context? = currentContext
+
   override fun definition() = ModuleDefinition {
     Name(MODULE_NAME)
 
@@ -69,20 +75,19 @@ class ExpoZebraRfidModule: Module() {
     OnCreate {
       currentContext = appContext.reactContext
 
-      sdkHandler = ZebraSdkHandler(currentContext!!)
+      sdkHandler = ZebraSdkHandler(this@ExpoZebraRfidModule)
     }
 
     OnDestroy {
-      for (reader in sdkHandler?.getConnectedDevices() ?: emptyList()) {
+      sdkHandler?.forEachConnectedDevice { device ->
         try {
-          reader.getRFIDReader().disconnect()
+          device.disconnect()
         } catch (e: Exception) {
           println("Zebra: Error disconnecting reader: ${e.message}")
         }
       }
       
       sdkHandler = null
-
       currentContext = null
     }
 
@@ -180,12 +185,12 @@ class ExpoZebraRfidModule: Module() {
   fun getAvailableDevices(): List<Map<String, String?>> =
     sdkHandler?.getAvailableDevices()?.map { 
       it.toReactObject() 
-    } ?: emptyList<Map<String, String>>()
+    } ?: emptyList()
 
   fun getConnectedDevices(): List<Map<String, String?>> =
     sdkHandler?.getConnectedDevices()?.map {
-      it.toReactObject()
-    } ?: emptyList<Map<String, String>>()
+      it.toReactObject() 
+    } ?: emptyList()
 
   fun connectToDevice(deviceAddress: String): Boolean {
     val sdkHandler = sdkHandler ?: return false
@@ -202,22 +207,44 @@ class ExpoZebraRfidModule: Module() {
     }
   }
 
-  fun ReaderDevice.toReactObject(): Map<String, String?> =
-    mapOf(
-      "id" to this.getAddress(),
-      "name" to this.getName(),
-      "address" to this.getAddress(),
-      "transport" to this.getTransport().toString(),
-      "serialNumber" to this.getSerialNumber(),
-      "version" to (try {
-        this.getRFIDReader()?.versionInfo()?.getVersion() ?: null
-      } catch (e: Exception) {
-        null
-      }),
-      "status" to (if (this.getRFIDReader()?.isConnected() ?: false) {
-        DEVICE_CONNECTED
-      } else {
-        DEVICE_DISCONNECTED
-      })
-    )
+  public fun onDeviceTriggered(deviceHandler: DeviceHandler) {
+    sendEvent(ON_DEVICE_TRIGGERED, mapOf(
+      "deviceId" to deviceHandler.getId(),
+      "trigger" to "pressed",
+    ))
+
+    startAction(deviceHandler);
+  }
+
+  public fun onDeviceReleased(deviceHandler: DeviceHandler) {
+    sendEvent(ON_DEVICE_TRIGGERED, mapOf(
+      "deviceId" to deviceHandler.getId(),
+      "trigger" to "released",
+    ))
+
+    stopAction(deviceHandler);
+  }
+
+  public fun onRfidRead(deviceHandler: DeviceHandler, tagData: TagData) {
+    sendEvent(ON_RFID_READ, mapOf(
+      "tagId" to tagData.getTagID(),
+      "deviceId" to deviceHandler.getDevice().getAddress(),
+      "rssi" to tagData.getPeakRSSI(),
+      "crc" to tagData.getCRC(),
+      "antennaId" to tagData.getAntennaID(),
+      "count" to tagData.getTagSeenCount(),
+    ))
+  }
+
+  private fun startAction(device: DeviceHandler) {
+    println("Zebra: Starting inventory action on device: ${device.getName()}")
+
+    device.startInventory()
+  }
+
+  private fun stopAction(device: DeviceHandler) {
+    println("Zebra: Stopping inventory action on device: ${device.getName()}")
+
+    device.stopInventory()
+  }
 }

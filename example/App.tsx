@@ -55,6 +55,9 @@ export default function App() {
       console.log("Available Readers:", availableReaders);
     });
     setConnectedReaders(getConnectedDevices().map((scanner) => scanner.id));
+
+    ExpoZebraRfid.addListener("onRfidRead", console.log);
+    ExpoZebraRfid.addListener("onDeviceTriggered", console.log);
   }, []);
 
   useEffect(() => {

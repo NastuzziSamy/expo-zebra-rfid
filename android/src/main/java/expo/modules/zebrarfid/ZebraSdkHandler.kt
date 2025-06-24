@@ -14,6 +14,7 @@ import com.zebra.rfid.api3.ReaderDevice
 import com.zebra.rfid.api3.RfidEventsListener
 import com.zebra.rfid.api3.RfidReadEvents
 import com.zebra.rfid.api3.RfidStatusEvents
+import com.zebra.rfid.api3.RFIDReader
 import com.zebra.rfid.api3.TagData
 import com.zebra.rfid.api3.Inventory
 import expo.modules.kotlin.Promise
@@ -21,8 +22,9 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class ZebraSdkHandler(
-  private val context: Context,
+  private val module: ExpoZebraRfidModule,
 ) {
+  private val context: Context = module.getContext() ?: throw IllegalStateException("React context is not available")
   private lateinit var sdk: Readers
   private val connectedDevices: MutableMap<String, DeviceHandler> = mutableMapOf()
 
@@ -38,38 +40,31 @@ class ZebraSdkHandler(
 
   public fun isReady(): Boolean = sdk != null
 
-  public fun getAvailableDevices(): List<ReaderDevice> =
-    sdk.GetAvailableRFIDReaderList()
+  public fun getAvailableDevices(): List<DeviceHandler> =
+    sdk.GetAvailableRFIDReaderList().map { device ->
+      DeviceHandler(this, device)
+    }
 
-  public fun getConnectedDevices(): List<ReaderDevice> =
-    connectedDevices.values.map {
-      it.getDevice()
-    }.toList()
+  public fun getConnectedDevices(): List<DeviceHandler> =
+    connectedDevices.values.toList()
 
-  public fun connectToDevice(deviceAddress: String): Boolean {
+  public fun connectToDevice(deviceId: String): Boolean {
     val availableDevices = getAvailableDevices()
-    val device = availableDevices.find { it.getAddress() == deviceAddress }
+    val device = availableDevices.find { it.getId() == deviceId }
 
     if (device == null) {
-      println("Zebra: device with Address $deviceAddress not found in available Readers.")
+      println("Zebra: device with Address $deviceId not found in available Readers.")
       return false
     }
 
-    val reader = device.getRFIDReader()
+    device.connect()
 
-    if (reader == null) {
-      println("Zebra: Failed to get RFIDReader for scanner with Address $deviceAddress.")
-      return false
-    }
-
-    reader.connect()
-
-    if (!reader.isConnected()) {
+    if (!device.isConnected()) {
       println("Zebra: Failed to connect to scanner: ${device.getName()}")
       return false
     }
     
-    connectedDevices.set(deviceAddress, DeviceHandler(this, device))
+    connectedDevices.set(deviceId, device)
 
     return true
   }
@@ -95,16 +90,18 @@ class ZebraSdkHandler(
 
     println("Zebra: RFID read from device: ${deviceHandler.getName()}, Tag ID: $tagId, RSSI: $rssi")
 
-    // Here you can handle the RFID read event, e.g., store it or process it further
+    module.onRfidRead(deviceHandler, tagData)
   }
 
   public fun onDeviceTriggered(deviceHandler: DeviceHandler, event: String) {
     when (event) {
       DeviceHandler.ON_TRIGGER_PRESSED -> {
-        startAction()
+        println("Zebra: Handheld trigger pressed event received.");
+        module.onDeviceTriggered(deviceHandler)
       }
       DeviceHandler.ON_TRIGGER_RELEASED -> {
-        stopAction()
+        println("Zebra: Handheld trigger released event received.");
+        module.onDeviceReleased(deviceHandler)
       }
       else -> {
         println("Zebra: Unknown RFID read event: $event")
@@ -112,14 +109,13 @@ class ZebraSdkHandler(
     }
   }
 
-  public fun startAction() {
+  public fun forEachConnectedDevice(action: (DeviceHandler) -> Unit) {
     for (deviceHandler in connectedDevices.values) {
       try {
         val reader = deviceHandler.getReader()
         
         if (reader.isConnected()) {
-          reader.Actions.Inventory.perform()
-          println("Zebra: Started inventory action on device: ${deviceHandler.getName()}")
+          action(deviceHandler)
         } else {
           println("Zebra: Device ${deviceHandler.getName()} is not connected.")
         }
@@ -127,25 +123,6 @@ class ZebraSdkHandler(
         println("Zebra: Invalid usage while starting action: ${e.message}")
       } catch (e: OperationFailureException) {
         println("Zebra: Operation failed while starting action: ${e.message}")
-      }
-    }
-  }
-
-  public fun stopAction() {
-    for (deviceHandler in connectedDevices.values) {
-      try {
-        val reader = deviceHandler.getReader()
-        
-        if (reader.isConnected()) {
-          reader.Actions.Inventory.stop()
-          println("Zebra: Stopped inventory action on device: ${deviceHandler.getName()}")
-        } else {
-          println("Zebra: Device ${deviceHandler.getName()} is not connected.")
-        }
-      } catch (e: InvalidUsageException) {
-        println("Zebra: Invalid usage while stopping action: ${e.message}")
-      } catch (e: OperationFailureException) {
-        println("Zebra: Operation failed while stopping action: ${e.message}")
       }
     }
   }

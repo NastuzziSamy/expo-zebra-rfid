@@ -37,27 +37,59 @@ class DeviceHandler(
     StartTrigger.setTriggerType(START_TRIGGER_TYPE.START_TRIGGER_TYPE_IMMEDIATE)
     StopTrigger.setTriggerType(STOP_TRIGGER_TYPE.STOP_TRIGGER_TYPE_IMMEDIATE)
   }
+  private var currentAction: DeviceAction = DeviceAction.NONE
 
   companion object {
     const val ON_TRIGGER_PRESSED = "onTriggerPressed"
     const val ON_TRIGGER_RELEASED = "onTriggerReleased"
+
+    enum class DeviceAction {
+      NONE,
+      INVENTORY,
+    }
   }
 
-  init {
-    parametrizeReader()
+  fun connect() {
+    reader.connect()
+
+    loadReader()
   }
 
   fun disconnect() {
-    reader.Events.removeEventsListener(this)
+    unloadReader()
+
     reader.disconnect()
   }
-
-  fun getName(): String = device.getName()
 
   fun getDevice(): ReaderDevice = device
   fun getReader(): RFIDReader = reader
 
-  private fun parametrizeReader() {
+  fun getId(): String = getAddress()
+  fun getName(): String = device.getName()
+  fun getAddress(): String = device.getAddress()
+  fun getSerialNumber(): String = device.getSerialNumber()
+  fun isConnected(): Boolean = reader.isConnected()
+  fun getTransport(): String = device.getTransport().toString()
+  fun getVersion(): String? = try {
+    reader.versionInfo()?.getVersion() ?: null
+  } catch (e: Exception) {
+    null
+  }
+  fun getAction(): DeviceAction = currentAction
+  fun isInventoryRunning(): Boolean = currentAction == DeviceAction.INVENTORY
+
+  fun toReactObject(): Map<String, String?> =
+    mapOf(
+      "id" to getId(),
+      "name" to getName(),
+      "address" to getAddress(),
+      "serialNumber" to getSerialNumber(),
+      "transport" to getTransport(),
+      "connected" to isConnected().toString(),
+      "version" to getVersion(),
+    )
+
+  private fun loadReader() {
     try {
       // receive events from reader
       reader.Events.addEventsListener(this);
@@ -81,7 +113,13 @@ class DeviceHandler(
     }
   }
 
+  private fun unloadReader() {
+    reader.Events.removeEventsListener(this)
+  }
+
   override fun eventReadNotify(rfidReadEvents: RfidReadEvents) {
+    println("Zebra: Read Notification: " + rfidReadEvents.getReadEventData().tagData.getTagID());
+
     sdkHandler.onRfidRead(this, rfidReadEvents.getReadEventData().tagData)
   }
 
@@ -102,25 +140,62 @@ class DeviceHandler(
     when (eventData.getHandheldEvent()) {
       HANDHELD_TRIGGER_EVENT_TYPE.HANDHELD_TRIGGER_PRESSED -> {
         sdkHandler.onDeviceTriggered(this, ON_TRIGGER_PRESSED)
-
-        // try {
-        //   reader.Actions.Inventory.perform();
-        // } catch (e: Exception) {
-        //   println("Zebra: Error starting reading: " + e.message);
-        // }
       }
       HANDHELD_TRIGGER_EVENT_TYPE.HANDHELD_TRIGGER_RELEASED -> {
         sdkHandler.onDeviceTriggered(this, ON_TRIGGER_RELEASED)
-
-        // try {
-        //   reader.Actions.Inventory.stop();
-        // } catch (e: Exception) {
-        //   println("Zebra: Error stopping reading: " + e.message);
-        // }
       }
       else -> {
         println("Zebra: Unhandled handheld trigger event type: " + eventData);
       }
     }
+  }
+
+  public fun startInventory(): Boolean {
+    if (currentAction != DeviceAction.NONE) {
+      println("Zebra: Cannot start inventory, another action is already in progress.")
+
+      if (currentAction == DeviceAction.INVENTORY) {
+        println("Zebra: Inventory is already running on device: ${getName()}")
+        return true
+      }
+
+      return false
+    }
+
+    try {
+      reader.Actions.Inventory.perform()
+      currentAction = DeviceAction.INVENTORY
+
+      println("Zebra: Inventory started on device: ${getName()}")
+      return true
+    } catch (e: InvalidUsageException) {
+      println("Zebra: Invalid usage while starting inventory: ${e.message}")
+    } catch (e: OperationFailureException) {
+      println("Zebra: Operation failure while starting inventory: ${e.message}")
+    }
+
+    return false
+  }
+
+  public fun stopInventory(): Boolean {
+    if (currentAction != DeviceAction.INVENTORY) {
+      println("Zebra: Cannot stop inventory, no inventory action is in progress.")
+
+      return false
+    }
+
+    try {
+      reader.Actions.Inventory.stop()
+      currentAction = DeviceAction.NONE
+
+      println("Zebra: Inventory stopped on device: ${getName()}")
+      return true
+    } catch (e: InvalidUsageException) {
+      println("Zebra: Invalid usage while stopping inventory: ${e.message}")
+    } catch (e: OperationFailureException) {
+      println("Zebra: Operation failure while stopping inventory: ${e.message}")
+    }
+
+    return false
   }
 }

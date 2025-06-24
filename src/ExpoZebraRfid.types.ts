@@ -5,8 +5,24 @@ export type OnLoadEventPayload = {
   url: string;
 };
 
+export enum DeviceTrigger {
+  PRESSED = "pressed",
+  RELEASED = "released",
+}
+
 export type ExpoZebraRfidModuleEvents = {
-  onChange: (params: ChangeEventPayload) => void;
+  onRfidRead: (params: {
+    tagId: string;
+    deviceId: string;
+    rssi: number | null;
+    crc: number | null;
+    antennaId: number | null;
+    count: number;
+  }) => void;
+  onDeviceTriggered: (params: {
+    scannerId: number;
+    trigger: DeviceTrigger;
+  }) => void;
 };
 
 export type ChangeEventPayload = {
