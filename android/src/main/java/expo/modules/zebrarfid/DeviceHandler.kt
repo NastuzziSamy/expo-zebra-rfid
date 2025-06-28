@@ -85,8 +85,8 @@ class DeviceHandler(
       "address" to getAddress(),
       "serialNumber" to getSerialNumber(),
       "transport" to getTransport(),
-      "connected" to isConnected().toString(),
       "version" to getVersion(),
+      "connected" to isConnected().toString(),
     )
 
   private fun loadReader() {

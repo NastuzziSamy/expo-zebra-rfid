@@ -10,10 +10,14 @@ export interface Device {
   id: string;
   name: string;
   address: string;
-  transport: DeviceTransport;
   serialNumber: string;
+  transport: DeviceTransport;
   version: string | null;
   isConnected: boolean;
+}
+
+export interface NativeDevice extends Omit<Device, "isConnected"> {
+  status: string;
 }
 
 declare class ExpoZebraRfidModule extends NativeModule<ExpoZebraRfidModuleEvents> {
@@ -23,17 +27,17 @@ declare class ExpoZebraRfidModule extends NativeModule<ExpoZebraRfidModuleEvents
   hasRequiredPermissions(): boolean;
   requestPermissions(): Promise<boolean>;
 
-  getAvailableDevices(): Promise<Device[]>;
-  // connectToDevice(scannerId: number): Promise<boolean>;
-  // disconnectFromScanner(scannerId: number): Promise<boolean>;
-  // isConnectedToScanner(scannerId: number): boolean;
-  // getConnectedDevices(): number[];
-  // triggerScan(scannerId: number): Promise<boolean>;
-  // startRfidInventory(scannerId: number): Promise<boolean>;
-  // stopRfidInventory(scannerId: number): Promise<boolean>;
-  // readRfidTag(scannerId: number, tagId: string): Promise<string | null>;
+  getAvailableDevices(): Promise<NativeDevice[]>;
+  connectToDevice(deviceId: string): Promise<boolean>;
+  disconnectFromDevice(deviceId: string): Promise<boolean>;
+  isConnectedToDevice(deviceId: string): boolean;
+  getConnectedDevices(): NativeDevice[];
+  // triggerScan(deviceId: string): Promise<boolean>;
+  // startRfidInventory(deviceId: string): Promise<boolean>;
+  // stopRfidInventory(deviceId: string): Promise<boolean>;
+  // readRfidTag(deviceId: string, tagId: string): Promise<string | null>;
   // writeRfidTag(
-  //   scannerId: number,
+  //   deviceId: string,
   //   tagId: string,
   //   data: string
   // ): Promise<boolean>;

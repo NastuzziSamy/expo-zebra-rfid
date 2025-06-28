@@ -125,6 +125,8 @@ class ExpoZebraRfidModule: Module() {
 
     Function("getConnectedDevices") { getConnectedDevices() }
 
+    Function("isConnectedToDevice") { deviceId: String -> isConnectedToDevice(deviceId) }
+
     AsyncFunction("connectToDeviceAsync") { deviceId: String, promise: Promise ->
       try {
         val result = connectToDevice(deviceId)
@@ -192,17 +194,46 @@ class ExpoZebraRfidModule: Module() {
       it.toReactObject() 
     } ?: emptyList()
 
-  fun connectToDevice(deviceAddress: String): Boolean {
+  fun isConnectedToDevice(deviceId: String): Boolean {
     val sdkHandler = sdkHandler ?: return false
 
-    return sdkHandler.connectToDevice(deviceAddress).also { isConnected ->
+    return sdkHandler.getConnectedDevices().any { it.getId() == deviceId }
+  }
+
+  fun connectToDevice(deviceId: String): Boolean {
+    val sdkHandler = sdkHandler ?: return false
+
+    return sdkHandler.connectToDevice(deviceId).also { isConnected ->
       if (isConnected) {
-        val device = sdkHandler.getAvailableDevices().find { it.getAddress() == deviceAddress }
+        val device = sdkHandler.getAvailableDevices().find { it.getId() == deviceId }
         if (device != null) {
-          // appContext.emit(ON_DEVICE_CONNECTED, device.toReactObject())
+          sendEvent(ON_DEVICE_CONNECTED, mapOf(
+            "deviceId" to device.getId(),
+            "name" to device.getName(),
+            "address" to device.getAddress(),
+            "serialNumber" to device.getSerialNumber(),
+            "transport" to device.getTransport(),
+            "version" to device.getVersion(),
+          ))
+        } else {
+          // appContext.emit(ON_DEVICE_ERRORED, "Device with address $deviceId not found after connection")
         }
       } else {
-        // appContext.emit(ON_DEVICE_ERRORED, "Failed to connect to device with address $deviceAddress")
+        // appContext.emit(ON_DEVICE_ERRORED, "Failed to connect to device with address $deviceId")
+      }
+    }
+  }
+
+  fun disconnectFromDevice(deviceId: String): Boolean {
+    val sdkHandler = sdkHandler ?: return false
+
+    return sdkHandler.disconnectFromDevice(deviceId).also { isDisconnected ->
+      if (isDisconnected) {
+        sendEvent(ON_DEVICE_DISCONNECTED, mapOf(
+          "deviceId" to deviceId,
+        ))
+      } else {
+        // appContext.emit(ON_DEVICE_ERRORED, "Failed to disconnect from device with address $deviceAddress")
       }
     }
   }

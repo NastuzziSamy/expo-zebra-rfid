@@ -37,12 +37,12 @@ export default function App() {
   const [hasPermissions, setHasPermissions] = useState<boolean>(false);
   const [isRequestingPermissions, setIsRequestingPermissions] =
     useState<boolean>(false);
-  const [connectedReaders, setConnectedReaders] = useState<number[]>([]);
-  const [connectingToScanner, setConnectingToScanner] = useState<number | null>(
+  const [connectedReaders, setConnectedReaders] = useState<string[]>([]);
+  const [connectingToScanner, setConnectingToScanner] = useState<string | null>(
     null
   );
   const [scanningStates, setScanningStates] = useState<{
-    [scannerId: number]: { barcode: boolean; rfid: boolean };
+    [scannerId: string]: { barcode: boolean; rfid: boolean };
   }>({});
   const [tagIdInput, setTagIdInput] = useState<string>("");
   const [tagDataInput, setTagDataInput] = useState<string>("");

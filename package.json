@@ -1,6 +1,6 @@
 {
   "name": "expo-zebra-rfid",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Expo for Zebra RFID",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -13,7 +13,16 @@
     "prepublishOnly": "expo-module prepublishOnly",
     "expo-module": "expo-module",
     "open:ios": "xed example/ios",
-    "open:android": "open -a \"Android Studio\" example/android"
+    "open:android": "open -a \"Android Studio\" example/android",
+    "publish": "npm publish",
+    "publish:beta": "npm publish --tag beta",
+    "publish:alpha": "npm publish --tag alpha",
+    "version:patch": "npm version patch",
+    "version:minor": "npm version minor",
+    "version:major": "npm version major",
+    "release:patch": "npm run version:patch && npm run publish",
+    "release:minor": "npm run version:minor && npm run publish",
+    "release:major": "npm run version:major && npm run publish"
   },
   "keywords": [
     "react-native",
